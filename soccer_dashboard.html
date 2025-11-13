@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soccer Field Availability Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 5px 5px 0 0;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .upload-section {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .upload-group {
+            margin-bottom: 15px;
+        }
+
+        .upload-group label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+
+        .upload-group input[type="file"] {
+            padding: 5px;
+        }
+
+        .date-selector {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .date-selector input {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+
+        .schedule-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+
+        .field-group {
+            margin-bottom: 30px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .field-group h3 {
+            margin-bottom: 15px;
+            color: #444;
+        }
+
+        .fields-row {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+        }
+
+        .field-column {
+            min-width: 120px;
+            flex-shrink: 0;
+            overflow: visible;
+        }
+
+        .field-header {
+            padding: 10px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            color: white;
+        }
+
+        .field-7v7 { background-color: #FF6B6B; }
+        .field-9v9 { background-color: #4ECDC4; }
+        .field-11v11 { background-color: #45B7D1; }
+
+        .time-slot {
+            height: 30px;
+            border: 1px solid #ddd;
+            margin-bottom: 0px;
+            position: relative;
+            cursor: pointer;
+            background-color: white;
+            overflow: visible !important;
+            box-sizing: border-box;
+        }
+
+        .time-label {
+            position: sticky;
+            left: 0;
+            width: 50px;
+            height: 30px;
+            padding: 5px 2px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            text-align: center;
+            font-size: 11px;
+            z-index: 10;
+            box-sizing: border-box;
+            line-height: 20px;
+            margin-bottom: 0px;
+        }
+
+        .booking {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-size: 11px;
+            color: white;
+            overflow: hidden;
+            white-space: normal;
+            word-wrap: break-word;
+            line-height: 1.2;
+            border: 1px solid rgba(0,0,0,0.2);
+            z-index: 5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .booking-game { background-color: #4CAF50; }
+        .booking-practice { background-color: #2196F3; }
+        .booking-conflict { background-color: #333; }
+        .booking-overlap { background-color: #f44336; }
+
+        .tooltip {
+            position: fixed;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            max-width: 300px;
+            display: none;
+        }
+
+        .team-selector {
+            margin-bottom: 20px;
+        }
+
+        .team-selector select {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+        }
+
+        .team-schedule {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        .team-event {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .team-event.practice {
+            border-left-color: #2196F3;
+        }
+
+        .team-event h4 {
+            margin-bottom: 5px;
+        }
+
+        .availability-checker {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .availability-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .form-group input, .form-group select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .check-button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            align-self: flex-end;
+        }
+
+        .check-button:hover {
+            background-color: #45a049;
+        }
+
+        .availability-results {
+            margin-top: 20px;
+        }
+
+        .result-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .result-item.warning {
+            border-left-color: #ff9800;
+            background-color: #fff3e0;
+        }
+
+        .result-item.error {
+            border-left-color: #f44336;
+            background-color: #ffebee;
+        }
+
+        .result-item.success {
+            background-color: #e8f5e9;
+        }
+
+        .conflict-section {
+            margin-bottom: 30px;
+            background-color: #fff;
+            border: 2px solid #f44336;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .conflict-section h3 {
+            color: #f44336;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .conflict-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+            border-radius: 4px;
+        }
+
+        .conflict-item h4 {
+            color: #c62828;
+            margin-bottom: 8px;
+        }
+
+        .conflict-details {
+            margin-left: 20px;
+            color: #555;
+        }
+
+        .conflict-details p {
+            margin: 5px 0;
+        }
+
+        .no-conflicts {
+            padding: 20px;
+            text-align: center;
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            color: #2e7d32;
+            font-size: 18px;
+        }
+
+        .time-grid {
+            display: flex;
+            gap: 5px;
+        }
+
+        .time-column-container {
+            display: flex;
+        }
+
+        .time-labels-column {
+            width: 50px;
+            flex-shrink: 0;
+        }
+
+        .fields-container {
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        button {
+            transition: all 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚽ Soccer Field Availability Dashboard</h1>
+
+        <div class="upload-section">
+            <h3>Upload Data Files</h3>
+            <div class="upload-group">
+                <label>Schedule File:</label>
+                <input type="file" id="scheduleFile" accept=".xlsx,.xls">
+            </div>
+            <div class="upload-group">
+                <label>Conflicts File:</label>
+                <input type="file" id="conflictsFile" accept=".xlsx,.xls">
+            </div>
+            <div class="upload-group">
+                <label>Practices File:</label>
+                <input type="file" id="practicesFile" accept=".xlsx,.xls">
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="schedule">Field Schedule</button>
+            <button class="tab" data-tab="team">Team Schedule</button>
+            <button class="tab" data-tab="conflicts">Conflict Report</button>
+            <button class="tab" data-tab="availability">Game Move Checker</button>
+        </div>
+
+        <div id="schedule" class="tab-content active">
+            <div class="date-selector">
+                <label><strong>Select Date:</strong></label>
+                <input type="date" id="dateInput">
+                <span id="dayOfWeek" style="margin-left: 15px; font-weight: bold; color: #333;"></span>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color booking-game"></div>
+                    <span>Games</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color booking-practice"></div>
+                    <span>Practices</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color booking-conflict"></div>
+                    <span>Field Unavailable</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color booking-overlap"></div>
+                    <span>CONFLICT - Overlap</span>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color field-7v7"></div>
+                    <span>7v7 Fields (U09, U10 games)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color field-9v9"></div>
+                    <span>9v9 Fields (U11, U12 games)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color field-11v11"></div>
+                    <span>11v11 Fields (U13, U14, U15 games)</span>
+                </div>
+                <div class="legend-item" style="font-style: italic; color: #666;">
+                    <span>Practices can use any field</span>
+                </div>
+            </div>
+
+            <div id="scheduleView" class="schedule-container"></div>
+        </div>
+
+        <div id="team" class="tab-content">
+            <div class="team-selector">
+                <label><strong>Select Team:</strong></label>
+                <select id="teamSelect">
+                    <option value="">-- Select a team --</option>
+                </select>
+            </div>
+            <div id="teamScheduleView" class="team-schedule"></div>
+        </div>
+
+        <div id="conflicts" class="tab-content">
+            <div style="margin-bottom: 20px;">
+                <h2>Conflict Report</h2>
+                <p>This report identifies scheduling conflicts that need to be resolved.</p>
+            </div>
+            <div class="date-selector">
+                <label><strong>Report Date Range:</strong></label>
+                <input type="date" id="conflictStartDate">
+                <span>to</span>
+                <input type="date" id="conflictEndDate">
+                <button class="check-button" onclick="generateConflictReport()" style="margin-left: 20px;">Generate Report</button>
+            </div>
+            <div id="conflictReportView" class="team-schedule"></div>
+        </div>
+
+        <div id="availability" class="tab-content">
+            <div class="availability-checker">
+                <h3>Check Game Move Availability</h3>
+                <p style="color: #666; margin-bottom: 15px;"><em>Note: Field size requirements only apply to games. Teams can practice on any available field.</em></p>
+                <div class="availability-form">
+                    <div class="form-group">
+                        <label>Team:</label>
+                        <select id="availTeamSelect">
+                            <option value="">-- Select a team --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Proposed Date 1:</label>
+                        <input type="date" id="proposedDate1">
+                    </div>
+                    <div class="form-group">
+                        <label>Proposed Time 1:</label>
+                        <input type="time" id="proposedTime1" value="10:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Proposed Date 2 (Optional):</label>
+                        <input type="date" id="proposedDate2">
+                    </div>
+                    <div class="form-group">
+                        <label>Proposed Time 2:</label>
+                        <input type="time" id="proposedTime2" value="10:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Proposed Date 3 (Optional):</label>
+                        <input type="date" id="proposedDate3">
+                    </div>
+                    <div class="form-group">
+                        <label>Proposed Time 3:</label>
+                        <input type="time" id="proposedTime3" value="10:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Is this a home game?</label>
+                        <select id="isHomeGame">
+                            <option value="yes">Yes - Check field availability</option>
+                            <option value="no">No - Away game</option>
+                        </select>
+                    </div>
+                    <button class="check-button" onclick="checkAvailability()">Check Availability</button>
+                </div>
+                <div id="availabilityResults" class="availability-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        let scheduleData = [];
+        let conflictsData = [];
+        let practicesData = [];
+        let teams = new Set();
+
+        const fieldConfig = [
+            { location: 'Linden Park', field: 'Linden North', size: '7v7', color: '#FF6B6B' },
+            { location: 'Linden Park', field: 'Linden South', size: '9v9', color: '#4ECDC4' },
+            { location: 'Tri-City Park', field: '#2 South', size: '7v7', color: '#FF6B6B' },
+            { location: 'Tri-City Park', field: '#1 South', size: '9v9', color: '#4ECDC4' },
+            { location: 'Goldwood Primary School', field: 'Goldwood', size: '7v7', color: '#FF6B6B' },
+            { location: 'Rocky River High School', field: 'RRHS', size: '11v11', color: '#45B7D1' },
+            { location: 'Rocky River Middle School', field: 'RRMS', size: '11v11', color: '#45B7D1' }
+        ];
+
+        const timeSlots = [];
+        for (let hour = 10; hour <= 19; hour++) {
+            timeSlots.push(`${hour}:00`);
+            timeSlots.push(`${hour}:30`);
+        }
+        timeSlots.push('20:00');
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // File upload handlers
+        document.getElementById('scheduleFile').addEventListener('change', (e) => loadFile(e, 'schedule'));
+        document.getElementById('conflictsFile').addEventListener('change', (e) => loadFile(e, 'conflicts'));
+        document.getElementById('practicesFile').addEventListener('change', (e) => loadFile(e, 'practices'));
+
+        function loadFile(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                if (type === 'schedule') {
+                    scheduleData = processScheduleData(jsonData);
+                    populateTeamSelectors();
+                } else if (type === 'conflicts') {
+                    conflictsData = processConflictsData(jsonData);
+                } else if (type === 'practices') {
+                    practicesData = processPracticesData(jsonData);
+                    populateTeamSelectors();
+                }
+
+                renderSchedule();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processScheduleData(data) {
+            teams.clear();
+            return data.map(row => {
+                // Process date - ensure we get the correct local date
+                let date = null;
+                if (row.Date) {
+                    const dateVal = row.Date;
+                    if (typeof dateVal === 'number') {
+                        // Excel serial date number
+                        // Days since Dec 30, 1899 (Excel's epoch)
+                        // We need to add days and extract the date in LOCAL timezone
+                        const daysFromExcelEpoch = Math.floor(dateVal);
+                        const excelEpochDate = new Date(1899, 11, 30); // Dec 30, 1899 in local time
+                        
+                        // Add days using setDate to stay in local timezone
+                        date = new Date(1899, 11, 30);
+                        date.setDate(date.getDate() + daysFromExcelEpoch);
+                    } else if (dateVal instanceof Date) {
+                        // Already a Date object
+                        date = new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate());
+                    } else if (typeof dateVal === 'string') {
+                        // String date - parse carefully
+                        if (dateVal.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            const [year, month, day] = dateVal.split('-').map(Number);
+                            date = new Date(year, month - 1, day);
+                        } else {
+                            const parsed = new Date(dateVal);
+                            date = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+                        }
+                    }
+                }
+                
+                const timeStr = formatTime(row.Time);
+                const isHome = row.Home && row.Home.includes('Rocky River');
+                
+                const ageMatch = row.Age ? row.Age.match(/U(\d+)/) : null;
+                const age = ageMatch ? ageMatch[1] : '';
+                const gender = row.Gender ? row.Gender.charAt(0) : '';
+                
+                let teamColor = '';
+                if (row.Home && isHome) {
+                    const colorMatch = row.Home.match(/(MRN|WHT|GRY|GLD|BLK)/);
+                    teamColor = colorMatch ? colorMatch[1] : '';
+                } else if (row.Visitor) {
+                    const colorMatch = row.Visitor.match(/(MRN|WHT|GRY|GLD|BLK)/);
+                    teamColor = colorMatch ? colorMatch[1] : '';
+                }
+                
+                const teamName = `${gender}${age}${teamColor}`;
+                if (teamName && gender && age) {
+                    teams.add(teamName);
+                }
+
+                return {
+                    date: date,
+                    gameNumber: row['Game #'],
+                    time: timeStr,
+                    gender: row.Gender,
+                    age: row.Age,
+                    home: row.Home,
+                    visitor: row.Visitor,
+                    location: row.Location,
+                    field: row.Field,
+                    isHome: isHome,
+                    teamName: teamName
+                };
+            });
+        }
+
+        function processConflictsData(data) {
+            return data.map(row => {
+                let startDate = null;
+                let endDate = null;
+                
+                // Process start date
+                if (row['Date and Time (START)']) {
+                    const startVal = row['Date and Time (START)'];
+                    console.log('Processing conflict start:', startVal, 'Type:', typeof startVal, 'Is Date?', startVal instanceof Date);
+                    
+                    if (typeof startVal === 'number') {
+                        const daysFromExcelEpoch = Math.floor(startVal);
+                        const timeFraction = startVal - daysFromExcelEpoch;
+                        startDate = new Date(1899, 11, 30);
+                        startDate.setDate(startDate.getDate() + daysFromExcelEpoch);
+                        // Add time component
+                        const totalSeconds = timeFraction * 86400;
+                        const hours = Math.floor(totalSeconds / 3600);
+                        const minutes = Math.round((totalSeconds % 3600) / 60); // Round to nearest minute
+                        const seconds = 0; // Set seconds to 0 since we rounded minutes
+                        startDate.setHours(hours, minutes, seconds, 0);
+                        console.log('  Converted to:', startDate);
+                    } else if (startVal instanceof Date) {
+                        console.log('  Original Date object:', startVal.toISOString());
+                        // Date object from XLSX - extract components to avoid timezone shift
+                        startDate = new Date(startVal.getFullYear(), startVal.getMonth(), startVal.getDate(),
+                                           startVal.getHours(), startVal.getMinutes(), startVal.getSeconds());
+                        console.log('  Converted to local:', startDate);
+                    } else {
+                        startDate = new Date(startVal);
+                        console.log('  String/other conversion:', startDate);
+                    }
+                }
+                
+                // Process end date
+                if (row['Date and Time (END)']) {
+                    const endVal = row['Date and Time (END)'];
+                    if (typeof endVal === 'number') {
+                        const daysFromExcelEpoch = Math.floor(endVal);
+                        const timeFraction = endVal - daysFromExcelEpoch;
+                        endDate = new Date(1899, 11, 30);
+                        endDate.setDate(endDate.getDate() + daysFromExcelEpoch);
+                        // Add time component
+                        const totalSeconds = timeFraction * 86400;
+                        const hours = Math.floor(totalSeconds / 3600);
+                        const minutes = Math.round((totalSeconds % 3600) / 60); // Round to nearest minute
+                        const seconds = 0; // Set seconds to 0 since we rounded minutes
+                        endDate.setHours(hours, minutes, seconds, 0);
+                    } else if (endVal instanceof Date) {
+                        // Date object from XLSX - extract components to avoid timezone shift
+                        endDate = new Date(endVal.getFullYear(), endVal.getMonth(), endVal.getDate(),
+                                         endVal.getHours(), endVal.getMinutes(), endVal.getSeconds());
+                    } else {
+                        endDate = new Date(endVal);
+                    }
+                }
+                
+                return {
+                    startDate: startDate,
+                    endDate: endDate,
+                    location: row.Location,
+                    field: row.Field,
+                    comment: row.Comment
+                };
+            });
+        }
+
+        function processPracticesData(data) {
+            return data.map(row => {
+                const gender = row.Gender ? row.Gender.charAt(0) : '';
+                const ageMatch = row.Age ? row.Age.match(/U(\d+)/) : null;
+                const age = ageMatch ? ageMatch[1] : '';
+                const colorMatch = row.Home ? row.Home.match(/(MRN|WHT|GRY|GLD|BLK)/) : null;
+                const teamColor = colorMatch ? colorMatch[1] : '';
+                const teamName = `${gender}${age}${teamColor}`;
+                
+                if (teamName && gender && age) {
+                    teams.add(teamName);
+                }
+
+                return {
+                    gender: row.Gender,
+                    age: row.Age,
+                    home: row.Home,
+                    location: row.Location,
+                    field: row.Field,
+                    day: row.Day,
+                    time: row.Time,
+                    teamName: teamName
+                };
+            });
+        }
+
+        function excelDateToJSDate(excelDate) {
+            if (!excelDate) return null;
+            if (excelDate instanceof Date) return excelDate;
+            if (typeof excelDate === 'string') {
+                // Parse date string and ensure it's in local timezone
+                const parsed = new Date(excelDate);
+                // If the string is in YYYY-MM-DD format, create date in local timezone
+                if (excelDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const [year, month, day] = excelDate.split('-').map(Number);
+                    return new Date(year, month - 1, day);
+                }
+                return parsed;
+            }
+            
+            // Excel serial date number
+            const date = new Date((excelDate - 25569) * 86400 * 1000);
+            // Convert to local timezone to avoid day offset
+            const offset = date.getTimezoneOffset();
+            return new Date(date.getTime() + offset * 60 * 1000);
+        }
+
+        function formatTime(time) {
+            if (!time) return '';
+            
+            // If it's already a string in HH:MM format, return it
+            if (typeof time === 'string') {
+                if (time.match(/^\d{1,2}:\d{2}/)) {
+                    const parts = time.split(':');
+                    return `${parts[0].padStart(2, '0')}:${parts[1]}`;
+                }
+                return time;
+            }
+            
+            // If it's a number (Excel time fraction: 0.5 = 12:00 PM)
+            if (typeof time === 'number') {
+                const totalSeconds = time * 86400;
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            }
+            
+            // If it's a Date object
+            if (time instanceof Date) {
+                return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+            }
+            
+            return '';
+        }
+
+        function populateTeamSelectors() {
+            const sortedTeams = Array.from(teams).sort();
+            const teamSelect = document.getElementById('teamSelect');
+            const availTeamSelect = document.getElementById('availTeamSelect');
+            
+            teamSelect.innerHTML = '<option value="">-- Select a team --</option>';
+            availTeamSelect.innerHTML = '<option value="">-- Select a team --</option>';
+            
+            sortedTeams.forEach(team => {
+                teamSelect.innerHTML += `<option value="${team}">${team}</option>`;
+                availTeamSelect.innerHTML += `<option value="${team}">${team}</option>`;
+            });
+        }
+
+        document.getElementById('dateInput').addEventListener('change', renderSchedule);
+        document.getElementById('teamSelect').addEventListener('change', renderTeamSchedule);
+
+        function renderSchedule() {
+            const dateInput = document.getElementById('dateInput').value;
+            if (!dateInput) {
+                document.getElementById('dateInput').valueAsDate = new Date();
+                return renderSchedule();
+            }
+
+            // Parse the date input as YYYY-MM-DD and create a local date
+            const [year, month, day] = dateInput.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1, day);
+            
+            // Update day of week display
+            const dayOfWeekElement = document.getElementById('dayOfWeek');
+            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            dayOfWeekElement.textContent = daysOfWeek[selectedDate.getDay()];
+
+            const scheduleView = document.getElementById('scheduleView');
+            scheduleView.innerHTML = '';
+
+            const mainContainer = document.createElement('div');
+            mainContainer.style.display = 'flex';
+            mainContainer.style.gap = '0px';
+            mainContainer.style.overflowX = 'auto';
+
+            // Time column
+            const timeColumn = document.createElement('div');
+            timeColumn.className = 'field-column';
+            timeColumn.style.position = 'sticky';
+            timeColumn.style.left = '0';
+            timeColumn.style.zIndex = '20';
+            timeColumn.style.backgroundColor = 'white';
+            timeColumn.style.minWidth = '50px';
+            timeColumn.style.width = '50px';
+            
+            const timeHeader = document.createElement('div');
+            timeHeader.className = 'field-header';
+            timeHeader.style.backgroundColor = '#666';
+            timeHeader.textContent = 'Time';
+            timeColumn.appendChild(timeHeader);
+
+            timeSlots.forEach(time => {
+                const timeLabel = document.createElement('div');
+                timeLabel.className = 'time-label';
+                timeLabel.textContent = time;
+                timeColumn.appendChild(timeLabel);
+            });
+            mainContainer.appendChild(timeColumn);
+
+            // Add all fields in order
+            fieldConfig.forEach(field => {
+                const fieldColumn = document.createElement('div');
+                fieldColumn.className = 'field-column';
+
+                const fieldHeader = document.createElement('div');
+                fieldHeader.className = 'field-header';
+                fieldHeader.style.backgroundColor = field.color;
+                fieldHeader.textContent = field.field;
+                fieldColumn.appendChild(fieldHeader);
+
+                timeSlots.forEach((time, index) => {
+                    const slot = document.createElement('div');
+                    slot.className = 'time-slot';
+                    slot.dataset.time = time;
+                    slot.dataset.location = field.location;
+                    slot.dataset.field = field.field;
+
+                    const bookings = getBookingsForSlot(selectedDate, time, field.location, field.field);
+                    
+                    // Only render bookings that start in this slot
+                    const startingBookings = bookings.filter(b => b.isStart);
+                    
+                    // Count practices vs other bookings
+                    const practices = startingBookings.filter(b => b.type === 'practice');
+                    const nonPractices = startingBookings.filter(b => b.type !== 'practice');
+                    
+                    // Render non-practices first (games, conflicts) stacked vertically
+                    nonPractices.forEach((booking, idx) => {
+                        const bookingDiv = document.createElement('div');
+                        bookingDiv.className = `booking booking-${booking.type}`;
+                        
+                        const duration = booking.duration || 60;
+                        const numSlots = duration / 30;
+                        const height = (numSlots * 30) + (numSlots - 1);
+                        bookingDiv.style.height = `${height}px`;
+                        bookingDiv.style.top = `${idx * 15}px`;
+                        
+                        console.log(`Booking: ${booking.label}, Duration: ${duration}min, NumSlots: ${numSlots}, Height: ${height}px`);
+                        
+                        bookingDiv.textContent = booking.label;
+                        bookingDiv.dataset.info = JSON.stringify(booking.info);
+                        
+                        bookingDiv.addEventListener('mouseenter', showTooltip);
+                        bookingDiv.addEventListener('mouseleave', hideTooltip);
+                        
+                        slot.appendChild(bookingDiv);
+                    });
+                    
+                    // Render practices side by side
+                    practices.forEach((booking, idx) => {
+                        const bookingDiv = document.createElement('div');
+                        bookingDiv.className = `booking booking-${booking.type}`;
+                        
+                        const duration = booking.duration || 60;
+                        const numSlots = duration / 30;
+                        const height = (numSlots * 30) + (numSlots - 1);
+                        bookingDiv.style.height = `${height}px`;
+                        
+                        // Position practices side by side
+                        const numPractices = practices.length;
+                        const widthPercent = 100 / numPractices;
+                        bookingDiv.style.width = `${widthPercent}%`;
+                        bookingDiv.style.left = `${idx * widthPercent}%`;
+                        bookingDiv.style.right = 'auto';
+                        
+                        console.log(`Practice: ${booking.label}, Duration: ${duration}min, NumSlots: ${numSlots}, Height: ${height}px, Width: ${widthPercent}%`);
+                        
+                        bookingDiv.textContent = booking.label;
+                        bookingDiv.dataset.info = JSON.stringify(booking.info);
+                        
+                        bookingDiv.addEventListener('mouseenter', showTooltip);
+                        bookingDiv.addEventListener('mouseleave', hideTooltip);
+                        
+                        slot.appendChild(bookingDiv);
+                    });
+
+                    fieldColumn.appendChild(slot);
+                });
+
+                mainContainer.appendChild(fieldColumn);
+            });
+
+            scheduleView.appendChild(mainContainer);
+        }
+
+        function getBookingsForSlot(date, time, location, field) {
+            const bookings = [];
+            const [hour, minute] = time.split(':').map(Number);
+            const slotStart = new Date(date);
+            slotStart.setHours(hour, minute, 0, 0);
+            const slotEnd = new Date(slotStart.getTime() + 30 * 60000);
+
+            // Check games
+            scheduleData.forEach(game => {
+                if (!game.date || !game.isHome) return;
+                
+                const gameDate = new Date(game.date);
+                const selectedDate = new Date(date);
+                
+                // Compare dates using local date components to avoid timezone issues
+                if (gameDate.getFullYear() !== selectedDate.getFullYear() ||
+                    gameDate.getMonth() !== selectedDate.getMonth() ||
+                    gameDate.getDate() !== selectedDate.getDate()) {
+                    return;
+                }
+
+                const gameLocation = normalizeLocation(game.location);
+                const gameField = normalizeField(game.field);
+                const slotLocation = normalizeLocation(location);
+                const slotField = normalizeField(field);
+
+                if (gameLocation === slotLocation && gameField === slotField) {
+                    // Parse game time more carefully
+                    let gameHour, gameMinute;
+                    if (typeof game.time === 'string') {
+                        const timeParts = game.time.split(':');
+                        gameHour = parseInt(timeParts[0]);
+                        gameMinute = parseInt(timeParts[1] || 0);
+                    } else {
+                        // Fallback in case time isn't a string
+                        gameHour = 0;
+                        gameMinute = 0;
+                    }
+                    
+                    const gameStart = new Date(date);
+                    gameStart.setHours(gameHour, gameMinute, 0, 0);
+                    const gameEnd = new Date(gameStart.getTime() + 90 * 60000);
+
+                    if (gameStart < slotEnd && gameEnd > slotStart) {
+                        const opponentShort = game.visitor ? game.visitor.replace(/Rocky River/g, '').replace(/\s+/g, ' ').trim().substring(0, 15) : '';
+                        const isStartSlot = gameStart.getTime() === slotStart.getTime();
+                        bookings.push({
+                            type: 'game',
+                            label: `${game.teamName} #${game.gameNumber} vs ${opponentShort}`,
+                            isStart: isStartSlot,
+                            duration: 90,
+                            info: {
+                                type: 'Game',
+                                gameNumber: game.gameNumber,
+                                team: game.teamName,
+                                time: game.time,
+                                opponent: game.visitor,
+                                location: `${game.location} / ${game.field}`
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Check conflicts
+            conflictsData.forEach(conflict => {
+                if (!conflict.startDate || !conflict.endDate) return;
+
+                const conflictLocation = normalizeLocation(conflict.location);
+                const conflictField = normalizeField(conflict.field);
+                const slotLocation = normalizeLocation(location);
+                const slotField = normalizeField(field);
+
+                if (conflictLocation === slotLocation && conflictField === slotField) {
+                    const conflictStart = new Date(conflict.startDate);
+                    const conflictEnd = new Date(conflict.endDate);
+
+                    if (conflictStart < slotEnd && conflictEnd > slotStart) {
+                        const isStartSlot = conflictStart >= slotStart && conflictStart < slotEnd;
+                        const durationMinutes = Math.min(Math.ceil((conflictEnd - conflictStart) / 60000), 180);
+                        const reasonLabel = conflict.comment || 'Unavailable';
+                        bookings.push({
+                            type: 'conflict',
+                            label: reasonLabel,
+                            isStart: isStartSlot,
+                            duration: durationMinutes,
+                            info: {
+                                type: 'Field Unavailable',
+                                time: `${formatDateTime(conflict.startDate)} - ${formatDateTime(conflict.endDate)}`,
+                                reason: conflict.comment,
+                                location: `${conflict.location} / ${conflict.field}`
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Check practices
+            practicesData.forEach(practice => {
+                const practiceLocation = normalizeLocation(practice.location);
+                const practiceField = normalizeField(practice.field);
+                const slotLocation = normalizeLocation(location);
+                const slotField = normalizeField(field);
+
+                if (practiceLocation === slotLocation && practiceField === slotField) {
+                    const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+                    
+                    if (practice.day === dayOfWeek) {
+                        const practiceTime = practice.time.replace('PM', '').trim();
+                        let practiceHour = parseInt(practiceTime);
+                        if (practiceHour < 12) practiceHour += 12;
+                        
+                        const practiceStart = new Date(date);
+                        practiceStart.setHours(practiceHour, 0, 0, 0);
+                        const practiceEnd = new Date(practiceStart.getTime() + 60 * 60000);
+
+                        if (practiceStart < slotEnd && practiceEnd > slotStart) {
+                            const isStartSlot = practiceStart.getTime() === slotStart.getTime();
+                            bookings.push({
+                                type: 'practice',
+                                label: practice.teamName,
+                                isStart: isStartSlot,
+                                duration: 60,
+                                info: {
+                                    type: 'Practice',
+                                    team: practice.teamName,
+                                    time: practice.time,
+                                    day: practice.day,
+                                    location: `${practice.location} / ${practice.field}`
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+
+            // Check for overlaps
+            if (bookings.length > 1) {
+                const hasGame = bookings.some(b => b.type === 'game');
+                const hasConflict = bookings.some(b => b.type === 'conflict');
+                const practiceCount = bookings.filter(b => b.type === 'practice').length;
+
+                if (hasGame || hasConflict || practiceCount > 2) {
+                    bookings.forEach(b => b.type = 'overlap');
+                }
+            }
+
+            return bookings;
+        }
+
+        function normalizeLocation(location) {
+            if (!location) return '';
+            return location.trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
+        function normalizeField(field) {
+            if (!field) return '';
+            return field.trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
+        function formatDateTime(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            return d.toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        }
+
+        function showTooltip(event) {
+            const tooltip = document.getElementById('tooltip');
+            const info = JSON.parse(event.target.dataset.info);
+            
+            let html = `<strong>${info.type}</strong><br>`;
+            Object.keys(info).forEach(key => {
+                if (key !== 'type' && info[key]) {
+                    const label = key.charAt(0).toUpperCase() + key.slice(1);
+                    html += `${label}: ${info[key]}<br>`;
+                }
+            });
+            
+            tooltip.innerHTML = html;
+            tooltip.style.display = 'block';
+            tooltip.style.left = event.pageX + 10 + 'px';
+            tooltip.style.top = event.pageY + 10 + 'px';
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').style.display = 'none';
+        }
+
+        function renderTeamSchedule() {
+            const teamName = document.getElementById('teamSelect').value;
+            const scheduleView = document.getElementById('teamScheduleView');
+            
+            if (!teamName) {
+                scheduleView.innerHTML = '<p>Please select a team to view their schedule.</p>';
+                return;
+            }
+
+            const teamGames = scheduleData.filter(game => game.teamName === teamName);
+            const teamPractices = practicesData.filter(practice => practice.teamName === teamName);
+
+            let html = `<h3>Schedule for ${teamName}</h3>`;
+
+            if (teamGames.length === 0 && teamPractices.length === 0) {
+                html += '<p>No games or practices scheduled for this team.</p>';
+            } else {
+                // Show practice schedule first
+                if (teamPractices.length > 0) {
+                    html += '<h3 style="margin-top: 20px;">Practice Schedule</h3>';
+                    teamPractices.forEach(practice => {
+                        html += `
+                            <div class="team-event">
+                                <h4>⚽ Practice</h4>
+                                <p><strong>Day:</strong> ${practice.day}s</p>
+                                <p><strong>Time:</strong> ${practice.time}</p>
+                                <p><strong>Location:</strong> ${practice.location} / ${practice.field}</p>
+                            </div>
+                        `;
+                    });
+                }
+                
+                // Then show games
+                html += '<h3 style="margin-top: 30px;">Games</h3>';
+                
+                const allEvents = [];
+
+                teamGames.forEach(game => {
+                    allEvents.push({
+                        date: game.date,
+                        type: 'game',
+                        data: game
+                    });
+                });
+
+                allEvents.sort((a, b) => {
+                    const dateA = a.date || new Date(0);
+                    const dateB = b.date || new Date(0);
+                    return dateA - dateB;
+                });
+
+                allEvents.forEach(event => {
+                    if (event.type === 'game') {
+                        const game = event.data;
+                        html += `
+                            <div class="team-event">
+                                <h4>🏆 Game #${game.gameNumber} - ${game.isHome ? 'HOME' : 'AWAY'}</h4>
+                                <p><strong>Date:</strong> ${game.date ? game.date.toLocaleDateString() : 'TBD'}</p>
+                                <p><strong>Time:</strong> ${game.time}</p>
+                                <p><strong>Opponent:</strong> ${game.isHome ? game.visitor : game.home}</p>
+                                <p><strong>Location:</strong> ${game.location} / ${game.field}</p>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            scheduleView.innerHTML = html;
+        }
+
+        function checkAvailability() {
+            const teamName = document.getElementById('availTeamSelect').value;
+            const isHomeGame = document.getElementById('isHomeGame').value === 'yes';
+            const resultsDiv = document.getElementById('availabilityResults');
+
+            if (!teamName) {
+                resultsDiv.innerHTML = '<div class="result-item error">Please select a team.</div>';
+                return;
+            }
+
+            const proposals = [
+                { date: document.getElementById('proposedDate1').value, time: document.getElementById('proposedTime1').value },
+                { date: document.getElementById('proposedDate2').value, time: document.getElementById('proposedTime2').value },
+                { date: document.getElementById('proposedDate3').value, time: document.getElementById('proposedTime3').value }
+            ].filter(p => p.date);
+
+            if (proposals.length === 0) {
+                resultsDiv.innerHTML = '<div class="result-item error">Please enter at least one proposed date and time.</div>';
+                return;
+            }
+
+            let html = '<h3>Availability Check Results</h3>';
+
+            proposals.forEach((proposal, index) => {
+                // Parse date properly in local timezone
+                const [year, month, day] = proposal.date.split('-').map(Number);
+                const proposalDate = new Date(year, month - 1, day);
+                const [hour, minute] = proposal.time.split(':').map(Number);
+                proposalDate.setHours(hour, minute, 0, 0);
+
+                const issues = [];
+                let status = 'success';
+
+                // Check for games on the same day
+                const gamesOnDay = scheduleData.filter(game => {
+                    if (game.teamName !== teamName) return false;
+                    if (!game.date) return false;
+                    const gameDate = new Date(game.date);
+                    return gameDate.toDateString() === proposalDate.toDateString();
+                });
+
+                if (gamesOnDay.length > 0) {
+                    issues.push(`Team already has ${gamesOnDay.length} game(s) scheduled on this day`);
+                    status = 'error';
+                }
+
+                // Check for practices
+                const dayOfWeek = proposalDate.toLocaleDateString('en-US', { weekday: 'long' });
+                const practicesOnDay = practicesData.filter(practice => {
+                    return practice.teamName === teamName && practice.day === dayOfWeek;
+                });
+
+                if (practicesOnDay.length > 0) {
+                    issues.push(`Team has practice scheduled on ${dayOfWeek}s at ${practicesOnDay[0].time}`);
+                    if (status === 'success') status = 'warning';
+                }
+
+                // Check field availability for home games
+                if (isHomeGame) {
+                    const teamAge = teamName.match(/\d+/);
+                    if (!teamAge) {
+                        issues.push('Unable to determine team age');
+                        status = 'error';
+                    } else {
+                        const age = parseInt(teamAge[0]);
+                        let requiredFields = [];
+                        
+                        // U09 and U10 teams play on 7v7 fields
+                        if (age <= 10) {
+                            requiredFields = fieldConfig.filter(f => f.size === '7v7');
+                        } 
+                        // U11 and U12 teams play on 9v9 fields
+                        else if (age <= 12) {
+                            requiredFields = fieldConfig.filter(f => f.size === '9v9');
+                        } 
+                        // U13, U14, U15 teams play on 11v11 fields
+                        else {
+                            requiredFields = fieldConfig.filter(f => f.size === '11v11');
+                        }
+
+                        let allFieldsUnavailable = true;
+                        const fieldStatus = [];
+
+                        requiredFields.forEach(fieldInfo => {
+                            // Check for field unavailability conflicts
+                            const conflicts = conflictsData.filter(conflict => {
+                                if (!conflict.startDate || !conflict.endDate) return false;
+                                
+                                const conflictLocation = normalizeLocation(conflict.location);
+                                const conflictField = normalizeField(conflict.field);
+                                const checkLocation = normalizeLocation(fieldInfo.location);
+                                const checkField = normalizeField(fieldInfo.field);
+
+                                if (conflictLocation !== checkLocation || conflictField !== checkField) return false;
+
+                                const conflictStart = new Date(conflict.startDate);
+                                const conflictEnd = new Date(conflict.endDate);
+                                const gameEnd = new Date(proposalDate.getTime() + 90 * 60000);
+
+                                // Check if the ENTIRE 90-minute game window overlaps with conflict
+                                return conflictStart < gameEnd && conflictEnd > proposalDate;
+                            });
+                            
+                            // Check for existing games on this field at this time
+                            const existingGames = scheduleData.filter(game => {
+                                if (!game.date || !game.isHome) return false;
+                                
+                                const gameDate = new Date(game.date);
+                                const proposalDateOnly = new Date(proposalDate);
+                                proposalDateOnly.setHours(0, 0, 0, 0);
+                                gameDate.setHours(0, 0, 0, 0);
+                                
+                                if (gameDate.getTime() !== proposalDateOnly.getTime()) return false;
+                                
+                                const gameLocation = normalizeLocation(game.location);
+                                const gameField = normalizeField(game.field);
+                                const checkLocation = normalizeLocation(fieldInfo.location);
+                                const checkField = normalizeField(fieldInfo.field);
+                                
+                                if (gameLocation !== checkLocation || gameField !== checkField) return false;
+                                
+                                // Parse game time
+                                let gameHour, gameMinute;
+                                if (typeof game.time === 'string') {
+                                    const timeParts = game.time.split(':');
+                                    gameHour = parseInt(timeParts[0]);
+                                    gameMinute = parseInt(timeParts[1] || 0);
+                                } else {
+                                    return false;
+                                }
+                                
+                                const gameStart = new Date(proposalDate);
+                                gameStart.setHours(gameHour, gameMinute, 0, 0);
+                                const gameEnd = new Date(gameStart.getTime() + 90 * 60000);
+                                const proposalEnd = new Date(proposalDate.getTime() + 90 * 60000);
+                                
+                                // Check if games overlap
+                                return gameStart < proposalEnd && gameEnd > proposalDate;
+                            });
+
+                            if (conflicts.length === 0 && existingGames.length === 0) {
+                                allFieldsUnavailable = false;
+                                fieldStatus.push(`✓ ${fieldInfo.location} / ${fieldInfo.field} is available`);
+                            } else {
+                                let reason = [];
+                                if (conflicts.length > 0) {
+                                    reason.push('field unavailable');
+                                }
+                                if (existingGames.length > 0) {
+                                    reason.push(`game already scheduled (Game #${existingGames[0].gameNumber})`);
+                                }
+                                fieldStatus.push(`✗ ${fieldInfo.location} / ${fieldInfo.field} is NOT available (${reason.join(', ')})`);
+                            }
+                        });
+
+                        if (allFieldsUnavailable) {
+                            issues.push('All appropriate fields are unavailable for the full 90-minute game duration');
+                            fieldStatus.forEach(s => issues.push(s));
+                            status = 'error';
+                        } else {
+                            fieldStatus.forEach(s => issues.push(s));
+                        }
+                    }
+                }
+
+                const resultClass = status === 'success' ? 'result-item success' : 
+                                   status === 'warning' ? 'result-item warning' : 
+                                   'result-item error';
+
+                html += `
+                    <div class="${resultClass}">
+                        <h4>Proposal ${index + 1}: ${proposalDate.toLocaleDateString()} at ${proposal.time}</h4>
+                        ${issues.length === 0 ? 
+                            '<p>✓ No conflicts found. This time appears to be available!</p>' : 
+                            '<ul>' + issues.map(issue => `<li>${issue}</li>`).join('') + '</ul>'
+                        }
+                    </div>
+                `;
+            });
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function generateConflictReport() {
+            const startDateStr = document.getElementById('conflictStartDate').value;
+            const endDateStr = document.getElementById('conflictEndDate').value;
+            const reportView = document.getElementById('conflictReportView');
+
+            if (!startDateStr || !endDateStr) {
+                reportView.innerHTML = '<div class="result-item error">Please select both start and end dates for the report.</div>';
+                return;
+            }
+
+            // Parse dates properly in local timezone
+            const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+            const start = new Date(startYear, startMonth - 1, startDay);
+            
+            const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
+            const end = new Date(endYear, endMonth - 1, endDay);
+            
+            const conflicts = [];
+
+            // Check each day in the range
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const currentDate = new Date(d);
+                
+                // Check all fields
+                fieldConfig.forEach(field => {
+                    // Collect all events on this field for this day
+                    const events = [];
+                    
+                    // Get all games on this field
+                    scheduleData.forEach(game => {
+                        if (!game.date || !game.isHome) return;
+                        
+                        const gameDate = new Date(game.date);
+                        if (gameDate.getFullYear() !== currentDate.getFullYear() ||
+                            gameDate.getMonth() !== currentDate.getMonth() ||
+                            gameDate.getDate() !== currentDate.getDate()) return;
+
+                        const gameLocation = normalizeLocation(game.location);
+                        const gameField = normalizeField(game.field);
+                        const fieldLocation = normalizeLocation(field.location);
+                        const fieldField = normalizeField(field.field);
+
+                        if (gameLocation === fieldLocation && gameField === fieldField) {
+                            let gameHour, gameMinute;
+                            if (typeof game.time === 'string') {
+                                const timeParts = game.time.split(':');
+                                gameHour = parseInt(timeParts[0]);
+                                gameMinute = parseInt(timeParts[1] || 0);
+                            } else {
+                                return;
+                            }
+                            
+                            const gameStart = new Date(currentDate);
+                            gameStart.setHours(gameHour, gameMinute, 0, 0);
+                            const gameEnd = new Date(gameStart.getTime() + 90 * 60000);
+                            
+                            events.push({
+                                type: 'game',
+                                start: gameStart,
+                                end: gameEnd,
+                                info: game
+                            });
+                        }
+                    });
+                    
+                    // Get all practices on this field
+                    practicesData.forEach(practice => {
+                        const practiceLocation = normalizeLocation(practice.location);
+                        const practiceField = normalizeField(practice.field);
+                        const fieldLocation = normalizeLocation(field.location);
+                        const fieldField = normalizeField(field.field);
+
+                        if (practiceLocation === fieldLocation && practiceField === fieldField) {
+                            const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+                            
+                            if (practice.day === dayOfWeek) {
+                                const practiceTime = practice.time.replace('PM', '').trim();
+                                let practiceHour = parseInt(practiceTime);
+                                if (practiceHour < 12) practiceHour += 12;
+                                
+                                const practiceStart = new Date(currentDate);
+                                practiceStart.setHours(practiceHour, 0, 0, 0);
+                                const practiceEnd = new Date(practiceStart.getTime() + 60 * 60000);
+                                
+                                events.push({
+                                    type: 'practice',
+                                    start: practiceStart,
+                                    end: practiceEnd,
+                                    info: practice
+                                });
+                            }
+                        }
+                    });
+                    
+                    // Get all conflicts on this field
+                    conflictsData.forEach(conflict => {
+                        if (!conflict.startDate || !conflict.endDate) return;
+
+                        const conflictLocation = normalizeLocation(conflict.location);
+                        const conflictField = normalizeField(conflict.field);
+                        const fieldLocation = normalizeLocation(field.location);
+                        const fieldField = normalizeField(field.field);
+
+                        if (conflictLocation === fieldLocation && conflictField === fieldField) {
+                            const conflictStart = new Date(conflict.startDate);
+                            const conflictEnd = new Date(conflict.endDate);
+                            
+                            // Check if conflict is on this date
+                            const conflictDateStart = new Date(conflictStart);
+                            conflictDateStart.setHours(0, 0, 0, 0);
+                            const currentDateStart = new Date(currentDate);
+                            currentDateStart.setHours(0, 0, 0, 0);
+                            
+                            if (conflictDateStart.getTime() <= currentDateStart.getTime() && 
+                                conflictEnd >= currentDate) {
+                                events.push({
+                                    type: 'conflict',
+                                    start: conflictStart,
+                                    end: conflictEnd,
+                                    info: conflict
+                                });
+                            }
+                        }
+                    });
+                    
+                    // Now check for overlaps between events
+                    const fieldConflicts = [];
+                    
+                    for (let i = 0; i < events.length; i++) {
+                        for (let j = i + 1; j < events.length; j++) {
+                            const event1 = events[i];
+                            const event2 = events[j];
+                            
+                            // Check if they overlap
+                            if (event1.start < event2.end && event2.start < event1.end) {
+                                // They overlap - determine if it's a conflict
+                                // NOTE: 2 practices at the same time is OK, only 3+ is a conflict
+                                const isConflict = 
+                                    (event1.type === 'game' && event2.type === 'game') || // Two games
+                                    (event1.type === 'game' && event2.type === 'conflict') || // Game during unavailability
+                                    (event1.type === 'conflict' && event2.type === 'game') ||
+                                    (event1.type === 'game' && event2.type === 'practice') || // Game during practice
+                                    (event1.type === 'practice' && event2.type === 'game') ||
+                                    (event1.type === 'practice' && event2.type === 'conflict') || // Practice during unavailability
+                                    (event1.type === 'conflict' && event2.type === 'practice');
+                                    // NOTE: practice-to-practice overlap is NOT included here - handled separately below
+                                
+                                if (isConflict) {
+                                    // Find if this conflict time already exists
+                                    const conflictTime = event1.start < event2.start ? event1.start : event2.start;
+                                    const existingConflict = fieldConflicts.find(fc => 
+                                        fc.time.getTime() === conflictTime.getTime()
+                                    );
+                                    
+                                    if (!existingConflict) {
+                                        fieldConflicts.push({
+                                            time: conflictTime,
+                                            events: [event1, event2]
+                                        });
+                                    } else {
+                                        // Add to existing conflict if not already there
+                                        if (!existingConflict.events.includes(event1)) {
+                                            existingConflict.events.push(event1);
+                                        }
+                                        if (!existingConflict.events.includes(event2)) {
+                                            existingConflict.events.push(event2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Check for more than 2 practices at the same time
+                    const practicesByTime = {};
+                    events.filter(e => e.type === 'practice').forEach(practice => {
+                        const timeKey = practice.start.getTime();
+                        if (!practicesByTime[timeKey]) {
+                            practicesByTime[timeKey] = [];
+                        }
+                        practicesByTime[timeKey].push(practice);
+                    });
+                    
+                    Object.keys(practicesByTime).forEach(timeKey => {
+                        if (practicesByTime[timeKey].length > 2) {
+                            fieldConflicts.push({
+                                time: new Date(parseInt(timeKey)),
+                                events: practicesByTime[timeKey]
+                            });
+                        }
+                    });
+                    
+                    if (fieldConflicts.length > 0) {
+                        conflicts.push({
+                            date: new Date(currentDate),
+                            field: field,
+                            conflicts: fieldConflicts
+                        });
+                    }
+                });
+            }
+
+            if (conflicts.length === 0) {
+                reportView.innerHTML = '<div class="no-conflicts">✓ No conflicts found in the selected date range!</div>';
+                return;
+            }
+
+            let html = '<h3>Scheduling Conflicts</h3>';
+            html += `<p style="color: #666; margin-bottom: 20px;">Found ${conflicts.length} field(s) with conflict(s) that require attention:</p>`;
+
+            conflicts.forEach((conflict, index) => {
+                html += '<div class="conflict-section">';
+                html += `<h3>⚠️ ${conflict.date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>`;
+                html += `<p><strong>Location:</strong> ${conflict.field.location} / ${conflict.field.field} (${conflict.field.size})</p>`;
+                
+                conflict.conflicts.forEach(conf => {
+                    html += '<div class="conflict-item">';
+                    html += `<h4>Time: ${conf.time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</h4>`;
+                    html += '<div class="conflict-details">';
+                    
+                    const games = conf.events.filter(e => e.type === 'game');
+                    const practices = conf.events.filter(e => e.type === 'practice');
+                    const unavailable = conf.events.filter(e => e.type === 'conflict');
+                    
+                    if (games.length > 0) {
+                        html += `<p><strong>📅 Games (${games.length}):</strong></p><ul>`;
+                        games.forEach(game => {
+                            html += `<li>Game #${game.info.gameNumber}: ${game.info.teamName} vs ${game.info.visitor} at ${game.info.time}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    if (practices.length > 0) {
+                        html += `<p><strong>⚽ Practices (${practices.length}):</strong></p><ul>`;
+                        practices.forEach(practice => {
+                            html += `<li>${practice.info.teamName} practice at ${practice.info.time} on ${practice.info.day}s</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    if (unavailable.length > 0) {
+                        html += '<p><strong>🚫 Field Unavailable:</strong></p><ul>';
+                        unavailable.forEach(c => {
+                            html += `<li>${c.info.comment || 'No reason provided'}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    html += '<p style="margin-top: 10px; color: #c62828;"><strong>Action Required:</strong> ';
+                    if (games.length > 1) {
+                        html += `Multiple games scheduled on same field - reschedule ${games.length - 1} game(s)`;
+                    } else if (games.length > 0 && unavailable.length > 0) {
+                        html += 'Reschedule game - field is not available';
+                    } else if (games.length > 0 && practices.length > 0) {
+                        html += 'Move practice(s) - game takes priority';
+                    } else if (practices.length > 2) {
+                        html += `Reduce practices - only 2 teams allowed per field (currently ${practices.length})`;
+                    } else if (unavailable.length > 0 && practices.length > 0) {
+                        html += 'Move practice(s) - field is not available';
+                    }
+                    html += '</p>';
+                    
+                    html += '</div></div>';
+                });
+                
+                html += '</div>';
+            });
+
+            reportView.innerHTML = html;
+        }
+
+        // Set today's date as default
+        document.getElementById('dateInput').valueAsDate = new Date();
+        
+        // Set default conflict report range (today + 30 days)
+        const today = new Date();
+        const thirtyDaysLater = new Date(today);
+        thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+        document.getElementById('conflictStartDate').valueAsDate = today;
+        document.getElementById('conflictEndDate').valueAsDate = thirtyDaysLater;
+    </script>
+</body>
+</html>
